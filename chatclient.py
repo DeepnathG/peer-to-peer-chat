@@ -2,6 +2,7 @@ import hmac
 import time
 import hashlib
 import json
+import zlib
 
 class Logger:
     # message priority levels
@@ -56,3 +57,13 @@ class Client(Logger):
     def load_user_directory(file_path):
         with open(file_path, 'r') as f:
             return json.load(f)
+    
+    def get_user_info(self, check = None, key = ''):
+        try:
+            for recipient in self.recipient_directory:
+                if recipient[key] == check:
+                    return recipient
+                if type(check) is str and recipient[key].lower() == check.lower():
+                    return recipient
+        except KeyError as e:
+            print('key not present in directory.', e)
