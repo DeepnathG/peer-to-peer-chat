@@ -1,0 +1,69 @@
+Weakness Documentation 
+
+ 
+
+This document outlines the weaknesses present in our socket program and provides recommendations for addressing these issues. The socket programming environment is complex and requires careful consideration of security concerns, as well as a thorough understanding of the protocols used in communication. This document provides a comprehensive analysis of the security risks inherent in our socket program, as well as a detailed discussion of the potential consequences of these weaknesses. Our aim is to provide clear, actionable recommendations to help mitigate these risks and ensure the security of the program. 
+
+Few of the weaknesses are as follows, 
+
+    Use of Diffie Hellman for key derivation and exchange. 
+
+    Key size: Diffie-Hellman is limited by the size of the prime number used in the calculation. Large key sizes are required for modern security standards, which can slow down the key exchange process and increase the computational load on the devices. 
+
+    Man-in-the-middle attacks: While Diffie-Hellman provides security against eavesdropping, it does not protect against man-in-the-middle (MITM) attacks. An attacker can intercept the key exchange process and perform a MITM attack by modifying the exchanged messages. To prevent this, a secure authentication mechanism is required, such as digital signatures or certificate-based authentication. 
+
+    Key lifetime: Diffie-Hellman keys have a limited lifetime due to advances in computing power. As computing power increases, the risk of an attacker being able to recover the shared secret key also increases. To maintain security, Diffie-Hellman keys must be regularly updated or replaced. 
+
+    Reference: https://ieeexplore.ieee.org/abstract/document/5485276 
+
+ 
+
+ 
+
+    Usage of Challenge-Handshake Authentication Protocol (CHAP). 
+
+ 
+
+CHAP requires that the secret be available in plaintext form. Irreversibly encrypted password databases commonly available cannot be used. User directory must be protected. In our implementation, the user directory is accessible to everyone. 
+
+ 
+
+    Complex Implementation: CHAP requires a complex set of procedures to be implemented by both the client and server to establish secure communication. This can lead to longer development times and increased implementation costs. 
+
+    Vulnerability to Replay Attacks: CHAP is susceptible to replay attacks, where an attacker intercepts a CHAP message and resends it, potentially leading to the attacker being granted access. 
+
+    Inefficient Authentication: CHAP requires that the authentication process be performed at regular intervals, which can result in an increase in latency and slow down the communication process. 
+
+    Scalability Limitations: CHAP requires that all participants in the authentication process have knowledge of all other participants, which can limit scalability and make the protocol unsuitable for large networks. 
+
+    Security Concerns: CHAP does not provide end-to-end encryption, leaving the data transmitted between the client and server vulnerable to interception and eavesdropping. 
+
+    Reference: https://www.rfc-editor.org/rfc/rfc1994#section-2.2 
+
+ 
+
+    Disadvantages of CRC. 
+
+    Collisions: Collisions occur when two different input data sets produce the same 32-bit CRC value. This can lead to incorrect data detection and correction, as the receiver may think that the data has not been corrupted even if it has. 
+
+    Bit order: The order of the bits in the input data can affect the resulting 32-bit CRC value. To avoid this issue, it is important to use a standardized bit ordering, such as big-endian or little-endian, when calculating the 32-bit CRC. 
+
+    Hardware acceleration: The 32-bit CRC calculation can be computationally expensive, especially for large data sets. 
+
+Potential Solutions: 
+
+    Use of a larger CRC value, such as a 64-bit or 128-bit CRC, to reduce the chances of collisions. 
+
+    Usage of a standardized bit ordering, such as big-endian or little-endian, when calculating CRC. 
+
+    For hardware acceleration - One solution to this issue is to use hardware acceleration, such as a hardware accelerator or a specialized processor, to perform the 32-bit CRC calculation more efficiently. 
+
+ 
+
+Actionable Recommendations 
+
+    Use Elliptic Curve Diffie-Hellman (ECDH): ECDH is a variant of the Diffie-Hellman key exchange algorithm that uses elliptic curves instead of modular arithmetic. This results in faster and more secure key exchanges, especially for small key sizes. 
+
+    Use Transport Layer Security (TLS) or Secure Sockets Layer (SSL): TLS and SSL provide secure communication between client and server by establishing encrypted communication channels, providing secure key exchange, and ensuring message authenticity. These protocols are widely used and provide a standardized, secure way to communicate over the Internet. 
+
+ 
