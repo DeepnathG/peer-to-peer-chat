@@ -8,6 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad,unpad 
 from base64 import b64encode, b64decode
 from cryptography.hazmat.primitives import padding
+from datetime import datetime
 
 class Logger:
     # message priority levels
@@ -38,6 +39,30 @@ class Logger:
         with open(self.error_logs_file, 'a+') as file:
             for log in error_logs:
                 file.write(log + '\n')
+
+
+class RequestHandler:
+    def __init__(self, msg_type = '', message = None, hmac_type = 'SHA256', hmac_val = '', enc_type = 'AES256CBC') -> None:
+            self.header = {
+                'msg_type': msg_type,
+                'crc': zlib.crc32(message.encode()) if message else 0, #use zlib ibrary to 
+                'timestamp': str(datetime.now())
+            }
+            self.message = message
+            self.hmac = {
+                'hmac_type': hmac_type,
+                'hmac_val': hmac_val
+            }
+            self.enc_type = enc_type
+
+    def append_to_header(self, key = '', value = ''):
+        self.header[key] = value
+
+    def build_request(self, hmac_key = ''):
+        msg_obj = {'header': self.header, 'message': self.message, 'security': {'enc_type': self.enc_type}}
+        self.hmac['hmac_val'] = hmac.new(hmac_key.encode(), json.dumps(msg_obj).encode(), hashlib.sha256).hexdigest()
+        msg_obj['security']['hmac'] = self.hmac
+        return msg_obj
 
 
 class Client(Logger):
@@ -138,3 +163,5 @@ class Client(Logger):
         data += unpadder.finalize()
         
         return data.decode('utf-8')
+    
+    
