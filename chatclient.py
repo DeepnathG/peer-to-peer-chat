@@ -1,6 +1,7 @@
 import hmac
 import time
 import hashlib
+import json
 
 class Logger:
     # message priority levels
@@ -31,3 +32,27 @@ class Logger:
         with open(self.error_logs_file, 'a+') as file:
             for log in error_logs:
                 file.write(log + '\n')
+
+
+class Client(Logger):
+
+    def __init__(self, port, file_path) -> None:
+        self.recipient_directory = Client.load_user_directory(file_path)
+        self.friend = None
+        if user := self.get_user_info(port, 'port'):
+            self.username = user['username']
+            self.password = user['password']
+            self.port = user['port']
+            self.ip = user['ip']
+            self.channel = None
+            self.private_key = None
+            self.shared_key = None
+            Logger.__init__(self, self.password, f'{self.username}_{self.port}.txt')
+        else:
+            raise Exception("The username does not exist in the directory!")
+
+    # load user directory from file
+    @staticmethod
+    def load_user_directory(file_path):
+        with open(file_path, 'r') as f:
+            return json.load(f)
