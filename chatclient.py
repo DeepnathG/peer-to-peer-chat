@@ -4,6 +4,10 @@ import hashlib
 import json
 import zlib
 from Crypto.Util import number
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad,unpad 
+from base64 import b64encode, b64decode
+from cryptography.hazmat.primitives import padding
 
 class Logger:
     # message priority levels
@@ -110,3 +114,17 @@ class Client(Logger):
         # Generate the CHAP_SECRET using SHA256
         self.chap_secret = Client.generate_digest(self.hmac_key)
         #print(self.chap_secret)
+    
+    def encrypt_message(self,message): #for encrypting the msg by python documentation
+        #here there should be msg
+        #this should be dhsk key of 32 bytes
+        cipher = AES.new(self.dhsk[:32], AES.MODE_CBC, bytes(self.iv, 'utf-8'))
+        message = bytes(message,'utf-8')
+
+        padder = padding.PKCS7(128).padder()
+        padded_data = padder.update(message)
+        padded_data += padder.finalize()
+
+        ct_bytes = cipher.encrypt(padded_data)
+
+        return (b64encode(ct_bytes).decode('utf-8'))
