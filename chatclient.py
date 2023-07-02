@@ -344,4 +344,11 @@ class Client(Logger):
             else:
                 print('Closing socket.')
                 self.encrypted_and_log(Logger.info, 'Closing socket')
-    
+    # Used for getting inputs from the user and try to connect manually.
+    def attempt_manual_connection(self, recipient, message):
+        ip = input('Recipient IP: ')
+        port = int(input('Recipient port: '))
+        password = input('Recipient password: ')
+        self.friend = {'username': recipient, 'password': password, 'ip': ip, 'port': port}
+        self.encrypted_and_log(Logger.warning, 'Attempting manual connection.')
+        self.send_message(recipient, message, True)
