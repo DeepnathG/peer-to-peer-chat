@@ -344,6 +344,7 @@ class Client(Logger):
             else:
                 print('Closing socket.')
                 self.encrypted_and_log(Logger.info, 'Closing socket')
+
     # Used for getting inputs from the user and try to connect manually.
     def attempt_manual_connection(self, recipient, message):
         ip = input('Recipient IP: ')
@@ -352,3 +353,180 @@ class Client(Logger):
         self.friend = {'username': recipient, 'password': password, 'ip': ip, 'port': port}
         self.encrypted_and_log(Logger.warning, 'Attempting manual connection.')
         self.send_message(recipient, message, True)
+
+    def receive_message(self):
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind(('0.0.0.0', self.port))
+            server.listen()
+            self.encrypted_and_log(Logger.info, 'Opened receiving socket.')
+
+            challenge = ''
+            stranger_channel = None
+            while True:
+                # wait for any other client to connect
+                stranger_channel, stranger_address = server.accept()
+                self.encrypted_and_log(Logger.info, f'Connection from {stranger_address} accepted.')
+                print(f"Connection from {stranger_address} accepted.")
+                break
+
+            client_shared_key = None
+            # waiting for shared key from other side
+            t = time.time()
+            while True:
+                if time.time() - t > 10:
+                    self.encrypted_and_log(Logger.error, 'Response timed out. Did not receive shared key. Closing socket.')
+                    print('No response in 10s. Could not exchange keys.')
+                    return # close socket
+                
+                if response := stranger_channel.recv(1024):
+                    response = json.loads(response.decode())
+                    if client_shared_key := response['message']:
+                        self.encrypted_and_log(Logger.info, 'Received shared key.')
+                        # generate shared key
+                        self.generate_shared_key()
+                        # sending our shared key
+                        req = RequestHandler(msg_type = 'response', message = str(self.shared_key)).build_request()
+                        stranger_channel.sendall(json.dumps(req).encode('utf-8'))
+                        self.encrypted_and_log(Logger.info, 'Sent shared key.')
+                        break
+
+            # generate keys
+            self.generate_keys(int(client_shared_key))
+
+            # checking hello message
+            t = time.time()
+            while True:
+                if time.time() - t > 10:
+                    self.encrypted_and_log(Logger.error, 'Response timed out. Closing socket.')
+                    print("No response received in 10 seconds. Closing socket.")
+                    return # close socket
+
+                if response := stranger_channel.recv(1024):
+                    response = json.loads(response.decode())
+                    if Client.check_message_integrity(response):
+                        if response['header']['msg_type'] == 'hello':
+                            self.encrypted_and_log(Logger.info, 'Received hello message.')
+
+                            # check if this stranger is there in your directory
+                            self.friend = self.get_user_info(response['header']['username'], 'username')
+                            if self.friend:
+                                self.friend['channel'] = stranger_channel
+                                self.encrypted_and_log(Logger.info, 'Sender identified.')
+                                # sending challenge
+                                challenge = Client.generate_digest(str(time.time()))
+                                enc_challenge = self.encrypt_message(challenge)
+                                req = RequestHandler(msg_type = 'challenge', message = enc_challenge).build_request(self.hmac_key)
+                                self.friend['channel'].sendall(json.dumps(req).encode('utf-8'))
+                                self.encrypted_and_log(Logger.info, 'Challenge message sent.')
+                                break
+                            else:
+                                self.encrypted_and_log(Logger.warning, 'Could not identify sender. Closing socket.')
+                                print('Could not identify sender. Closing socket')
+                                return
+                    else:
+                        self.encrypted_and_log(Logger.error, 'Hello message integrity compromised. Closing socket.')
+                        print('Message integrity compromised!')
+                        return
+
+            # waiting for response
+            t = time.time()
+            while True:
+                if time.time() - t > 10:
+                    self.encrypted_and_log(Logger.error, 'Response message timed out. Closing socket.')
+                    print("No response received in 10 seconds. Closing socket.")
+                    return # close socket
+
+                if response := self.friend['channel'].recv(1024):
+                    response = json.loads(response.decode())
+                    if Client.check_message_integrity(response):
+                        if response['header']['msg_type'] == 'response':
+                            self.encrypted_and_log(Logger.info, 'Received response to challenge.')
+                            expected_response = Client.generate_digest(challenge + self.chap_secret)
+                            actual_response = self.decrypt_message(response['message'])
+                            if expected_response == actual_response:
+                                # Send an ack message to the client
+                                ack = RequestHandler(msg_type = 'ack').build_request(self.hmac_key)
+                                self.friend['channel'].sendall(json.dumps(ack).encode('utf-8'))
+                                self.encrypted_and_log(Logger.info, )
+                                self.encrypted_and_log(Logger.info, 'Challenge verified. Acknowledgement sent.')
+                                break
+                            else:
+                                print('Handshake failed.')
+                                self.encrypted_and_log(Logger.error, 'Failed to verify challenge. Handshake failed. Closing socket.')
+                                # Send a nack message to the client
+                                nack = RequestHandler(msg_type = 'nack').build_request(self.hmac_key)
+                                self.friend['channel'].sendall(json.dumps(nack).encode('utf-8'))
+                                self.encrypted_and_log(Logger.info, 'Nack message sent.')
+                                print("Nack message sent.")
+                                return # close socket
+                    else:
+                        self.encrypted_and_log(Logger.error, 'Message integrity compromised. Handshake failed. Closing socket.')
+                        print('Message integrity compromised!')
+                        return
+
+            # waiting for challenge
+            t = time.time()
+            while True:
+                if time.time() - t > 10:
+                    self.encrypted_and_log(Logger.error, 'Response timed out. Handshake failed. Closing socket.')
+                    print("No response received in 10 seconds. Closing socket.")
+                    return # close socket
+
+                if response := self.friend['channel'].recv(1024):
+                    response = json.loads(response.decode())
+                    if Client.check_message_integrity(response):
+                        if response['header']['msg_type'] == 'challenge':
+                            self.encrypted_and_log(Logger.info, 'Received challenge message.')
+                            challenge = self.decrypt_message(response['message'])
+                            challenge_message = self.encrypt_message(Client.generate_digest(challenge + self.chap_secret))
+                            req = RequestHandler(msg_type = 'response', message = challenge_message).build_request(self.hmac_key)
+                            self.friend['channel'].sendall(json.dumps(req).encode('utf-8'))
+                            self.encrypted_and_log(Logger.info, 'Sent response to challenge.')
+                            break
+                    else:
+                        self.encrypted_and_log(Logger.error, 'Challenge message integrity compromised. Handshake failed. Closing socket.')
+                        print('Message integrity compromised!')
+                        return
+
+            # Wait for ack or nack message
+            t = time.time()
+            while True:
+                if (time.time() - t) > 10:
+                    self.encrypted_and_log(Logger.error, 'Response timed out. Closing socket.')
+                    print("No response received in 10 seconds. Closing socket.")
+                    return # close socket
+
+                if response:= self.friend['channel'].recv(1024):
+                    response = json.loads(response.decode())
+                    if Client.check_message_integrity(response):
+                        if response['header']['msg_type'] == 'ack':
+                            self.encrypted_and_log(Logger.info, 'Acknowledgement received. Handshake successful.')
+                            print('Acknowledgment received. Handshake successful')
+                            req = RequestHandler(msg_type= 'response').build_request(self.hmac_key)
+                            self.friend['channel'].sendall(json.dumps(req).encode('utf-8'))
+                            break
+                        if response['header']['msg_type'] == 'nack':
+                            self.encrypted_and_log(Logger.error, 'Nack received. Handshake failed. Closing socket.')
+                            print('Handshake failed.')
+                            return # close socket
+                    else:
+                        self.encrypted_and_log(Logger.error, 'Response message integrity compromised. Handshake failed. Closing socket.')
+                        print('Message integrity compromised!')
+                        return
+
+            while True:
+                if response := self.friend['channel'].recv(1024):
+                    response = json.loads(response.decode())
+                    if Client.check_message_integrity(response):
+                        info = ' | '.join([self.friend['username'], str(self.friend['ip']), str(self.friend['port'])])
+                        msg = self.decrypt_message(response['message'])
+                        print(f'Message from {info} :')
+                        print(f'--> {msg}')
+                        self.encrypted_and_log(Logger.info, f'Received message from {info}')
+                        self.encrypted_and_log(Logger.info, msg)
+                        return
+                    else:
+                        self.encrypted_and_log(Logger.error, 'Message integrity compromised. Closing socket.')
+                        print('Message integrity compromised!')
+                        return
