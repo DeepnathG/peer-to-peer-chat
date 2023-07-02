@@ -17,3 +17,17 @@ class Logger:
         log = f'{int(time.time())}::{level}::{message}::{encrypted_message}' #Log format
         with open(self.file_name, 'a+') as file:
             file.write(log + '\n')
+
+    #Function is used to verify logs which are being logged.
+    def verify_logs(self):
+        error_logs = []
+        with open(self.file_name, 'r') as file:
+            if log := file.readline().strip():
+                timestamp, level, message, encrypted_message = log.split('::')
+                new_hmac = hmac.new(self.password.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
+                if new_hmac != encrypted_message:
+                    error_logs.append(f'{timestamp}::{level}::{message}::{encrypted_message}::{new_hmac}')
+
+        with open(self.error_logs_file, 'a+') as file:
+            for log in error_logs:
+                file.write(log + '\n')
