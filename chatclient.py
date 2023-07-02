@@ -87,3 +87,26 @@ class Client(Logger):
         g = 38206302734509127934494184288146126895979393772837750277878652743093783496073
         self.private_key = number.getRandomInteger(32)
         self.shared_key = int(pow(g,self.private_key,p))
+
+    def generate_keys(self, other_shared_key, for_client = False):
+        # Generate the DHSK and enc_type using diffie-hellman algorithm
+
+        p = 89381270863332931872159944476876498042528716480323987919416299827681815950961
+        
+        self.dhsk = bytes(str(pow(other_shared_key, self.private_key, p)), 'utf-8')
+
+        h = hmac.new(self.dhsk, self.friend['password'].encode('utf-8') if for_client else self.password.encode('utf-8'), digestmod=hashlib.sha256)
+        self.enc_type = h.hexdigest()
+        #print(self.enc_type)
+
+        # Generate the IV using SHA256
+        self.iv = Client.generate_digest(self.enc_type)[:16]
+        #print(self.iv)
+
+        # Generate the HMAC_KEY using SHA256
+        self.hmac_key = Client.generate_digest(self.iv)
+        #print(self.hmac_key)
+
+        # Generate the CHAP_SECRET using SHA256
+        self.chap_secret = Client.generate_digest(self.hmac_key)
+        #print(self.chap_secret)
