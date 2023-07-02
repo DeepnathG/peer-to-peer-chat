@@ -128,3 +128,13 @@ class Client(Logger):
         ct_bytes = cipher.encrypt(padded_data)
 
         return (b64encode(ct_bytes).decode('utf-8'))
+    
+    def decrypt_message(self,message):
+        body = b64decode(message)
+        cipher = AES.new(self.dhsk[:32], AES.MODE_CBC, bytes(self.iv, 'utf-8'))
+        pt = cipher.decrypt(body) 
+        unpadder = padding.PKCS7(128).unpadder()
+        data = unpadder.update(pt)
+        data += unpadder.finalize()
+        
+        return data.decode('utf-8')
