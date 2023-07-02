@@ -3,6 +3,7 @@ import time
 import hashlib
 import json
 import zlib
+from Crypto.Util import number
 
 class Logger:
     # message priority levels
@@ -79,3 +80,10 @@ class Client(Logger):
         h = hashlib.sha256()
         h.update(msg.encode())
         return h.hexdigest()
+    
+     #Function for generation shared key. p and g are prime and primitive numbers.
+    def generate_shared_key(self, for_client = False):
+        p = 89381270863332931872159944476876498042528716480323987919416299827681815950961
+        g = 38206302734509127934494184288146126895979393772837750277878652743093783496073
+        self.private_key = number.getRandomInteger(32)
+        self.shared_key = int(pow(g,self.private_key,p))
