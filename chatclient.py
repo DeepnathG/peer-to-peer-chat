@@ -73,3 +73,9 @@ class Client(Logger):
         excepted_crc = response['header']['crc']
         message_crc = zlib.crc32(response['message'].encode()) if response['message'] else 0
         return excepted_crc == message_crc
+    
+    @staticmethod
+    def generate_digest(msg = ''):
+        h = hashlib.sha256()
+        h.update(msg.encode())
+        return h.hexdigest()
