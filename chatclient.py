@@ -530,3 +530,26 @@ class Client(Logger):
                         self.encrypted_and_log(Logger.error, 'Message integrity compromised. Closing socket.')
                         print('Message integrity compromised!')
                         return
+                    
+    def message_life_cycle(self):
+        if self.friend and self.friend.get('channel'):
+            self.friend['channel'].close()
+        if self.channel:
+            self.channel.close()
+        time.sleep(3)
+        action = input("Do you want to (S)end / (R)eceive a message or (Q)uit. ").upper()
+        if action == 'Q':
+            return
+        if action == 'S':
+            # acting as client
+            recipient = input("Enter recipient's username: ")
+            message = input("Enter message to send: ")
+            self.send_message(recipient, message)
+        elif action == 'R':
+            # acting as server
+            print("Waiting for incoming messages ...")
+            self.receive_message()
+        else:
+            print('Invalid action, try again!')
+
+        self.message_life_cycle()
