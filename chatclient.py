@@ -67,3 +67,9 @@ class Client(Logger):
                     return recipient
         except KeyError as e:
             print('key not present in directory.', e)
+
+    @staticmethod
+    def check_message_integrity(response):
+        excepted_crc = response['header']['crc']
+        message_crc = zlib.crc32(response['message'].encode()) if response['message'] else 0
+        return excepted_crc == message_crc
